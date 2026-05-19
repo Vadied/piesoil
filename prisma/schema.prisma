@@ -1,11 +1,163 @@
 generator client {
   provider      = "prisma-client-js"
-  // "native"  resolves to the host OS for local development.
+  // "native" resolves to the host OS for local development.
   // The debian target covers the Cloud Run container (Node 20 slim = Debian Bookworm).
   binaryTargets = ["native", "debian-openssl-3-0-x", "linux-musl-openssl-3-0-x"]
 }
 
 datasource db {
   provider = "postgresql"
+  // Include connection pool parameters in the URL to cap connections per Cloud Run
+  // instance, e.g. ?connection_limit=5&pool_timeout=2
+  // See .env.example for the recommended format.
   url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  CO_EDITOR
+}
+
+// ---------------------------------------------------------------------------
+// Auth models (NextAuth.js PrismaAdapter — field names must not be changed)
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  /// Nullable so OAuth-only users never have a local password.
+  password      String?
+  role          UserRole  @default(CO_EDITOR)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+  articles Article[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Content models
+// ---------------------------------------------------------------------------
+
+model Article {
+  id            String    @id @default(cuid())
+  title         String
+  slug          String    @unique
+  content       String    @db.Text
+  /// Short plain-text summary shown in listings and meta descriptions.
+  excerpt       String?
+  /// Public GCS URL of the cover image; null until an image is uploaded.
+  coverImageUrl String?
+  published     Boolean   @default(false)
+  /// Set explicitly when the article is first published; preserved on updates.
+  publishedAt   DateTime?
+  authorId      String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  author     User              @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  categories ArticleCategory[]
+  tags       ArticleTag[]
+
+  @@map("articles")
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  articles ArticleCategory[]
+
+  @@map("categories")
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  articles ArticleTag[]
+
+  @@map("tags")
+}
+
+// ---------------------------------------------------------------------------
+// Join tables (explicit to allow future extra columns without a new migration)
+// ---------------------------------------------------------------------------
+
+model ArticleCategory {
+  articleId  String
+  categoryId String
+
+  article  Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, categoryId])
+  @@map("article_categories")
+}
+
+model ArticleTag {
+  articleId String
+  tagId     String
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, tagId])
+  @@map("article_tags")
 }
