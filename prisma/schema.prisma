@@ -1,0 +1,11 @@
+generator client {
+  provider      = "prisma-client-js"
+  // "native"  resolves to the host OS for local development.
+  // The debian target covers the Cloud Run container (Node 20 slim = Debian Bookworm).
+  binaryTargets = ["native", "debian-openssl-3-0-x", "linux-musl-openssl-3-0-x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}

@@ -1,0 +1,40 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies (rebuilt inside Docker)
+node_modules
+npm-debug.log*
+
+# Next.js build artifacts
+.next
+out
+
+# Local environment files — secrets must come from Secret Manager at runtime
+.env
+.env.local
+.env.*.local
+
+# Development and test tooling
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+coverage
+
+# Editor and OS artifacts
+.DS_Store
+*.pem
+.vscode
+.idea
+
+# Docker files (not needed inside image)
+Dockerfile
+.dockerignore
+
+# CI/CD
+cloudbuild.yaml
+
+# Prisma SQLite dev databases (production uses Cloud SQL)
+prisma/*.db
+prisma/*.db-journal
