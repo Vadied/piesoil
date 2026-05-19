@@ -96,6 +96,34 @@ All secrets and external endpoints are read from environment variables. Copy `.e
 
 See `.env.example` for full descriptions and example values.
 
+## Authentication
+
+### Backoffice Login
+
+The backoffice is protected by Next.js middleware. Unauthenticated requests to any `/backoffice` route are redirected to `/backoffice/login`. Two sign-in methods are supported:
+
+- **Email + password** — credentials validated against bcrypt-hashed passwords stored in PostgreSQL. User accounts must exist in the database (created by the seed script or by an admin).
+- **Google OAuth** — delegates to Google using the credentials configured in `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
+
+The user's role (`ADMIN` or `CO_EDITOR`) is propagated from the database through the JWT into `session.user.role`.
+
+### Google OAuth — Redirect URI Configuration
+
+The authorised redirect URI must be registered in the [Google Cloud Console](https://console.cloud.google.com/) under **APIs & Services → Credentials → OAuth 2.0 Client IDs**.
+
+| Environment | Redirect URI |
+|---|---|
+| Local development | `http://localhost:3000/api/auth/callback/google` |
+| Cloud Run (production) | `https://<YOUR_CLOUD_RUN_URL>/api/auth/callback/google` |
+
+Steps:
+1. Open **APIs & Services → Credentials** and select (or create) your OAuth 2.0 client.
+2. Under **Authorised redirect URIs**, add both URIs above.
+3. Copy the **Client ID** and **Client Secret** into `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (locally in `.env.local`; in production via Secret Manager).
+4. Ensure `NEXTAUTH_URL` is set to the canonical URL of the deployment (e.g. `https://app.example.com` on Cloud Run) so that NextAuth generates the correct callback URL.
+
+> **Note:** Google OAuth is optional for local development. If `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` are left empty, only email + password login will work.
+
 ## GCP Deployment
 
 ### Architecture

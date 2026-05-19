@@ -15,6 +15,9 @@ declare module 'next-auth' {
 declare module 'next-auth/jwt' {
   interface JWT {
     id: string
-    role: UserRole
+    // Optional because the role is written into the token during the jwt
+    // callback — it is absent on the very first invocation for OAuth users
+    // until the DB lookup completes.
+    role?: UserRole
   }
 }
