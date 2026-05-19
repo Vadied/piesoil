@@ -1,3 +1,3 @@
-// Components used exclusively by public-facing pages
-// (header, footer, article cards, etc.).
-export {}
+// Components used exclusively by public-facing pages.
+export { Header } from './Header'
+export { Footer } from './Footer'
