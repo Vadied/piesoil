@@ -40,7 +40,9 @@ src/
     index.ts           Application-level TypeScript types
     next-auth.d.ts     NextAuth session type augmentation
 prisma/
-  schema.prisma        Prisma schema (PostgreSQL)
+  schema.prisma        Prisma schema — User, Article, Category, Tag + NextAuth models
+  seed.ts              Seeds the initial admin user
+  migrations/          Generated migration history
 ```
 
 ## Local Development
@@ -60,11 +62,13 @@ npm install
 # 2. Copy the example env file and fill in values
 cp .env.example .env.local
 
-# 3. Generate the Prisma client
-npm run db:generate
-
-# 4. Apply migrations (once the schema has models)
+# 3. Apply migrations and generate the Prisma client
 npm run db:migrate:dev
+
+# 4. Seed the initial admin user
+#    Set SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD (and optionally SEED_ADMIN_NAME)
+#    in .env.local first, then:
+npm run db:seed
 
 # 5. Start the development server
 npm run dev
@@ -78,13 +82,16 @@ All secrets and external endpoints are read from environment variables. Copy `.e
 
 | Variable | Description |
 |---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
+| `DATABASE_URL` | PostgreSQL connection string — include `?connection_limit=5&pool_timeout=2` for Cloud Run |
 | `NEXTAUTH_SECRET` | JWT/session signing secret (`openssl rand -base64 32`) |
 | `NEXTAUTH_URL` | Canonical URL of the deployment |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
 | `GCS_BUCKET_NAME` | GCS bucket for uploaded cover images |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 Measurement ID (format: `G-XXXXXXXXXX`) |
+| `SEED_ADMIN_EMAIL` | Email for the initial admin user (seed only) |
+| `SEED_ADMIN_PASSWORD` | Plain-text password hashed by the seed script (seed only) |
+| `SEED_ADMIN_NAME` | Display name for the initial admin user (seed only, default: `Admin`) |
 | `NODE_ENV` | `development` locally, `production` on Cloud Run |
 
 See `.env.example` for full descriptions and example values.
@@ -109,8 +116,8 @@ Cloud Build
 2. **Create Cloud SQL instance** (PostgreSQL 15) and a database + user.
 3. **Create Artifact Registry repository** (Docker format).
 4. **Store secrets** in Secret Manager:
-   - `DATABASE_URL` — PostgreSQL connection string using the Unix socket path for Cloud Run:
-     `postgresql://USER:PASS@localhost/DB?host=/cloudsql/PROJECT:REGION:INSTANCE`
+   - `DATABASE_URL` — PostgreSQL connection string using the Unix socket path for Cloud Run with pool limits:
+     `postgresql://USER:PASS@/DB?host=/cloudsql/PROJECT:REGION:INSTANCE&connection_limit=5&pool_timeout=2`
    - `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GCS_BUCKET_NAME` (and any others)
 5. **IAM**: Grant the Cloud Build service account `Cloud SQL Client`, `Artifact Registry Writer`, `Cloud Run Admin`, and `Secret Manager Secret Accessor`.
 6. **Cloud Run service**: add the Cloud SQL Auth Proxy sidecar container and mount secrets as env vars.

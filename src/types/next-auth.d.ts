@@ -1,12 +1,20 @@
+import type { UserRole } from '@prisma/client'
 import type { DefaultSession } from 'next-auth'
 
-// Augment the built-in Session type to expose the database user id on
-// session.user so server components and API routes can read it without
-// casting.
+// Augment the built-in Session and JWT types to expose the database user id
+// and role so server components and API routes can read them without casting.
 declare module 'next-auth' {
   interface Session {
     user: {
       id: string
+      role: UserRole
     } & DefaultSession['user']
+  }
+}
+
+declare module 'next-auth/jwt' {
+  interface JWT {
+    id: string
+    role: UserRole
   }
 }
