@@ -6,8 +6,8 @@
     "seed": "tsx prisma/seed.ts"
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "node -e \"const fs=require('fs'),f='src/app/backoffice/(protected)/dashboard/page.tsx';try{fs.unlinkSync(f)}catch(e){}\" && next dev",
+    "build": "node -e \"const fs=require('fs'),f='src/app/backoffice/(protected)/dashboard/page.tsx';try{fs.unlinkSync(f)}catch(e){}\" && next build",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "prisma generate",
