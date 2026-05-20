@@ -12,6 +12,7 @@ A Next.js 14 application serving both the public-facing website and the authenti
 | Database | PostgreSQL 15 (Cloud SQL), Prisma ORM |
 | File Storage | Google Cloud Storage |
 | Analytics | GA4 with Consent Mode v2 |
+| Validation | Zod (server-side schema validation on all mutation endpoints) |
 | Runtime | Node 20, Cloud Run (GCP) |
 
 ## Prerequisites
@@ -87,6 +88,9 @@ src/
         [slug]/route.ts    GET /api/articles/:slug   — single article detail (JSON)
       revalidate/
         route.ts           POST /api/revalidate      — on-demand ISR revalidation
+    error.tsx              App-level error boundary (runtime errors in page segments)
+    global-error.tsx       Root-level error boundary (errors in the root layout)
+    not-found.tsx          Custom 404 page
     layout.tsx             Root HTML shell (lang, fonts, global CSS)
     globals.css            Tailwind directives
   components/
@@ -97,10 +101,13 @@ src/
     articles.ts            Cached Prisma queries for published articles (unstable_cache)
     auth.ts                NextAuth options (shared between route handler and server code)
     db.ts                  Prisma client singleton
+    rate-limit.ts          In-process sliding-window rate limiter (login endpoint)
+    schemas.ts             Zod validation schemas + parseBody() helper
     storage.ts             Google Cloud Storage helpers
   types/
     index.ts               Application-level TypeScript types
     next-auth.d.ts         NextAuth session type augmentation
+  middleware.ts            Auth protection (backoffice) + rate limiting (login)
 prisma/
   schema.prisma            Prisma schema — User, Article, Category, Tag + NextAuth models
   seed.ts                  Seeds the initial admin user
@@ -192,6 +199,46 @@ Steps:
 
 > **Note:** Google OAuth is optional for local development. If `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` are left empty, only email + password login will work.
 
+## Production Hardening
+
+### Input Validation
+
+All Route Handlers that accept a request body validate input with **Zod schemas** (`src/lib/schemas.ts`). Invalid requests receive a structured JSON response:
+
+```json
+{
+  "error": "Dati non validi",
+  "errors": [{ "field": "email", "message": "Formato email non valido" }]
+}
+```
+
+HTTP 422 is returned for validation failures; HTTP 400 for malformed JSON bodies.
+
+### Rate Limiting
+
+The credentials login endpoint (`POST /api/auth/callback/credentials`) is protected by an **in-process sliding-window rate limiter**: a maximum of 10 attempts per IP address within a 15-minute window. Exceeded requests receive HTTP 429.
+
+The rate limiter lives in `src/lib/rate-limit.ts` and uses an in-memory Map — it is intentionally per-instance. On Cloud Run with multiple active revisions each instance maintains its own window, which is the accepted trade-off for a stateless, no-dependency approach. For stricter enforcement across instances, replace the store with Redis/Memorystore.
+
+### Security Headers
+
+The following HTTP security headers are applied to every response via `next.config.ts`:
+
+| Header | Value |
+|---|---|
+| `Content-Security-Policy` | Restricts scripts/styles/fonts/images/connections to `'self'` + required Google domains |
+| `X-Frame-Options` | `DENY` — prevents clickjacking |
+| `X-Content-Type-Options` | `nosniff` — prevents MIME-type sniffing |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Permissions-Policy` | Disables camera, microphone, geolocation |
+| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload` |
+
+### Error Handling
+
+- **`app/error.tsx`** — catches runtime errors in any page or layout segment; renders a user-friendly Italian-language fallback inside the root layout.
+- **`app/global-error.tsx`** — catches errors thrown inside the root layout itself; renders a full-page fallback with its own `<html>/<body>` shell.
+- **`app/not-found.tsx`** — custom 404 page shown for unknown routes or when `notFound()` is called server-side.
+
 ## GCP Deployment
 
 ### Architecture
@@ -214,7 +261,7 @@ Cloud Build
 4. **Store secrets** in Secret Manager:
    - `DATABASE_URL` — PostgreSQL connection string using the Unix socket path for Cloud Run with pool limits:
      `postgresql://USER:PASS@/DB?host=/cloudsql/PROJECT:REGION:INSTANCE&connection_limit=5&pool_timeout=2`
-   - `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GCS_BUCKET_NAME` (and any others)
+   - `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GCS_BUCKET_NAME`, `REVALIDATION_SECRET`
 5. **IAM**: Grant the Cloud Build service account `Cloud SQL Client`, `Artifact Registry Writer`, `Cloud Run Admin`, and `Secret Manager Secret Accessor`.
 6. **Cloud Run service**: add the Cloud SQL Auth Proxy sidecar container and mount secrets as env vars.
 
@@ -235,6 +282,34 @@ Cloud Build will:
 1. Build and push the Docker image tagged with `$COMMIT_SHA`.
 2. Run `prisma migrate deploy` against the live Cloud SQL database via `exec-wrapper`.
 3. Deploy the new revision to Cloud Run.
+
+### Cloud SQL Auth Proxy Sidecar
+
+The Cloud Run service definition must include the Cloud SQL Auth Proxy as a sidecar container alongside the Next.js container. The proxy listens on a Unix socket (`/cloudsql/PROJECT:REGION:INSTANCE`) that Prisma connects to via `DATABASE_URL`. No public IP or VPC connector is needed.
+
+Minimum Cloud Run service configuration:
+
+```yaml
+# containers:
+#   - name: app
+#     image: <ARTIFACT_REGISTRY_IMAGE>
+#     env:
+#       - name: DATABASE_URL
+#         valueFrom:
+#           secretKeyRef: { name: database-url, key: latest }
+#       # ... other secrets
+#   - name: cloud-sql-proxy
+#     image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2
+#     args:
+#       - "--unix-socket=/cloudsql"
+#       - "PROJECT:REGION:INSTANCE"
+#     volumeMounts:
+#       - name: cloudsql
+#         mountPath: /cloudsql
+# volumes:
+#   - name: cloudsql
+#     emptyDir: {}
+```
 
 ### Health Check
 

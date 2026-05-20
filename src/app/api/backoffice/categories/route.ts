@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { listTaxonomyItems, createTaxonomyItem } from '@/lib/taxonomy'
+import { createTaxonomySchema, parseBody } from '@/lib/schemas'
 
 /**
  * GET /api/backoffice/categories
@@ -29,12 +30,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
   }
 
-  let body: { name?: string }
-  try {
-    body = (await request.json()) as { name?: string }
-  } catch {
-    return NextResponse.json({ error: 'Corpo della richiesta non valido' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, createTaxonomySchema)
+  if (!parsed.success) return parsed.response
 
-  return createTaxonomyItem('category', body.name ?? '', 'Categoria già esistente')
+  return createTaxonomyItem('category', parsed.data.name, 'Categoria già esistente')
 }

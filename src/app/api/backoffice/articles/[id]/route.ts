@@ -4,6 +4,7 @@ import { revalidateTag } from 'next/cache'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { ARTICLES_CACHE_TAG } from '@/lib/articles'
+import { updateArticleSchema, parseBody } from '@/lib/schemas'
 
 type RouteContext = { params: { id: string } }
 
@@ -58,19 +59,6 @@ export async function GET(_req: Request, { params }: RouteContext): Promise<Next
   })
 }
 
-type UpdateArticleBody = {
-  title?: string
-  slug?: string
-  content?: string
-  excerpt?: string | null
-  coverImageUrl?: string | null
-  published?: boolean
-  publishedAt?: string | null
-  categoryIds?: string[]
-  tagIds?: string[]
-  authorId?: string
-}
-
 /**
  * PUT /api/backoffice/articles/:id
  *
@@ -98,26 +86,25 @@ export async function PUT(request: Request, { params }: RouteContext): Promise<N
     return NextResponse.json({ error: 'Accesso negato' }, { status: 403 })
   }
 
-  let body: UpdateArticleBody
-  try {
-    body = (await request.json()) as UpdateArticleBody
-  } catch {
-    return NextResponse.json({ error: 'Corpo della richiesta non valido' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, updateArticleSchema)
+  if (!parsed.success) return parsed.response
 
-  const { title, slug, content, excerpt, coverImageUrl, published, publishedAt, categoryIds, tagIds, authorId } = body
+  const {
+    title,
+    slug,
+    content,
+    excerpt,
+    coverImageUrl,
+    published,
+    publishedAt,
+    categoryIds,
+    tagIds,
+    authorId,
+  } = parsed.data
 
-  if (!title?.trim() || !slug?.trim() || !content?.trim()) {
-    return NextResponse.json(
-      { error: 'Titolo, slug e contenuto sono obbligatori' },
-      { status: 400 },
-    )
-  }
-
-  // Slug uniqueness and author existence checks run in parallel
   const [slugConflict, newAuthor] = await Promise.all([
     prisma.article.findFirst({
-      where: { slug: slug.trim(), NOT: { id: params.id } },
+      where: { slug, NOT: { id: params.id } },
       select: { id: true },
     }),
     isAdmin && authorId && authorId !== existing.authorId
@@ -135,7 +122,6 @@ export async function PUT(request: Request, { params }: RouteContext): Promise<N
   const effectiveAuthorId =
     isAdmin && authorId && newAuthor ? authorId : existing.authorId
 
-  // Resolve publishedAt
   const isPublished = published ?? false
   let effectivePublishedAt: Date | null = existing.publishedAt
 
@@ -143,10 +129,8 @@ export async function PUT(request: Request, { params }: RouteContext): Promise<N
     if (publishedAt) {
       effectivePublishedAt = new Date(publishedAt)
     } else if (!existing.publishedAt) {
-      // First publish with no explicit date → timestamp now
       effectivePublishedAt = new Date()
     }
-    // Otherwise keep the existing publishedAt
   }
 
   const validCategoryIds = categoryIds?.filter(Boolean) ?? []
@@ -154,15 +138,14 @@ export async function PUT(request: Request, { params }: RouteContext): Promise<N
 
   try {
     const updated = await prisma.$transaction(async (tx) => {
-      // Replace relationship rows atomically
       await tx.articleCategory.deleteMany({ where: { articleId: params.id } })
       await tx.articleTag.deleteMany({ where: { articleId: params.id } })
 
       const result = await tx.article.update({
         where: { id: params.id },
         data: {
-          title: title.trim(),
-          slug: slug.trim(),
+          title,
+          slug,
           content,
           excerpt: excerpt?.trim() || null,
           coverImageUrl: coverImageUrl?.trim() || null,
