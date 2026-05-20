@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { patchUserSchema, parseBody } from '@/lib/schemas'
 
 type RouteContext = { params: { id: string } }
 
@@ -44,20 +45,12 @@ export async function PATCH(request: Request, { params }: RouteContext): Promise
     )
   }
 
-  let body: { disabled?: boolean }
-  try {
-    body = (await request.json()) as { disabled?: boolean }
-  } catch {
-    return NextResponse.json({ error: 'Corpo della richiesta non valido' }, { status: 400 })
-  }
-
-  if (typeof body.disabled !== 'boolean') {
-    return NextResponse.json({ error: "Il campo 'disabled' è obbligatorio" }, { status: 400 })
-  }
+  const parsed = await parseBody(request, patchUserSchema)
+  if (!parsed.success) return parsed.response
 
   const updated = await prisma.user.update({
     where: { id: params.id },
-    data: { disabled: body.disabled },
+    data: { disabled: parsed.data.disabled },
     select: { id: true, disabled: true },
   })
 

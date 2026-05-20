@@ -4,6 +4,7 @@ import { revalidateTag } from 'next/cache'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { ARTICLES_CACHE_TAG } from '@/lib/articles'
+import { createArticleSchema, parseBody } from '@/lib/schemas'
 
 /**
  * GET /api/backoffice/articles
@@ -47,19 +48,6 @@ export async function GET(): Promise<NextResponse> {
   })
 }
 
-type CreateArticleBody = {
-  title?: string
-  slug?: string
-  content?: string
-  excerpt?: string | null
-  coverImageUrl?: string | null
-  published?: boolean
-  publishedAt?: string | null
-  categoryIds?: string[]
-  tagIds?: string[]
-  authorId?: string
-}
-
 /**
  * POST /api/backoffice/articles
  *
@@ -73,21 +61,21 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
   }
 
-  let body: CreateArticleBody
-  try {
-    body = (await request.json()) as CreateArticleBody
-  } catch {
-    return NextResponse.json({ error: 'Corpo della richiesta non valido' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, createArticleSchema)
+  if (!parsed.success) return parsed.response
 
-  const { title, slug, content, excerpt, coverImageUrl, published, publishedAt, categoryIds, tagIds, authorId } = body
-
-  if (!title?.trim() || !slug?.trim() || !content?.trim()) {
-    return NextResponse.json(
-      { error: 'Titolo, slug e contenuto sono obbligatori' },
-      { status: 400 },
-    )
-  }
+  const {
+    title,
+    slug,
+    content,
+    excerpt,
+    coverImageUrl,
+    published,
+    publishedAt,
+    categoryIds,
+    tagIds,
+    authorId,
+  } = parsed.data
 
   const isAdmin = session.user.role === 'ADMIN'
   const effectiveAuthorId = isAdmin && authorId ? authorId : session.user.id
@@ -96,7 +84,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     isAdmin && authorId
       ? prisma.user.findUnique({ where: { id: authorId }, select: { id: true } })
       : null,
-    prisma.article.findUnique({ where: { slug: slug.trim() }, select: { id: true } }),
+    prisma.article.findUnique({ where: { slug }, select: { id: true } }),
   ])
 
   if (isAdmin && authorId && !authorCheck) {
@@ -119,8 +107,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     const article = await prisma.article.create({
       data: {
-        title: title.trim(),
-        slug: slug.trim(),
+        title,
+        slug,
         content,
         excerpt: excerpt?.trim() || null,
         coverImageUrl: coverImageUrl?.trim() || null,

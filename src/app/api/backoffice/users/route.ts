@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import bcrypt from 'bcryptjs'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { createUserSchema, parseBody } from '@/lib/schemas'
 
 /**
  * GET /api/backoffice/users
@@ -39,12 +40,6 @@ export async function GET(): Promise<NextResponse> {
   })
 }
 
-type CreateUserBody = {
-  name?: string
-  email?: string
-  password?: string
-}
-
 /**
  * POST /api/backoffice/users
  *
@@ -60,38 +55,13 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'Accesso negato' }, { status: 403 })
   }
 
-  let body: CreateUserBody
-  try {
-    body = (await request.json()) as CreateUserBody
-  } catch {
-    return NextResponse.json({ error: 'Corpo della richiesta non valido' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, createUserSchema)
+  if (!parsed.success) return parsed.response
 
-  const { name, email, password } = body
-
-  if (!name?.trim() || !email?.trim() || !password) {
-    return NextResponse.json(
-      { error: 'Nome, email e password sono obbligatori' },
-      { status: 400 },
-    )
-  }
-
-  const emailLower = email.trim().toLowerCase()
-
-  // Basic email format check
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLower)) {
-    return NextResponse.json({ error: 'Formato email non valido' }, { status: 400 })
-  }
-
-  if (password.length < 8) {
-    return NextResponse.json(
-      { error: 'La password deve avere almeno 8 caratteri' },
-      { status: 400 },
-    )
-  }
+  const { name, email, password } = parsed.data
 
   const existing = await prisma.user.findUnique({
-    where: { email: emailLower },
+    where: { email },
     select: { id: true },
   })
   if (existing) {
@@ -106,8 +76,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     const user = await prisma.user.create({
       data: {
-        name: name.trim(),
-        email: emailLower,
+        name,
+        email,
         password: hashedPassword,
         role: 'CO_EDITOR',
       },
