@@ -5,11 +5,27 @@ import {
   getPublishedArticleList,
   type ArticleListItem,
 } from '@/lib/articles'
+import { OG_BASE } from '@/lib/metadata'
 
 export const metadata: Metadata = {
   title: 'Blog',
   description:
     'Articoli, approfondimenti e aggiornamenti di Terra Bonifica su tecniche di bonifica, normativa e casi studio.',
+  openGraph: {
+    ...OG_BASE,
+    title: 'Blog | Terra Bonifica',
+    description:
+      'Articoli, approfondimenti e casi studio su fitorimediazione, biorisanamento, normativa ambientale e tecniche innovative di bonifica dei suoli contaminati.',
+    url: '/blog',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'Blog Terra Bonifica — Approfondimenti sulla bonifica del suolo',
+      },
+    ],
+  },
 }
 
 // Time-based ISR fallback — data cache is the primary mechanism.

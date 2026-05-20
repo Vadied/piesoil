@@ -1,10 +1,26 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { OG_BASE } from '@/lib/metadata'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
   description:
     "Informativa sul trattamento dei dati personali di Terra Bonifica ai sensi del Regolamento UE 2016/679 (GDPR).",
+  openGraph: {
+    ...OG_BASE,
+    title: 'Privacy Policy | Terra Bonifica',
+    description:
+      "Informativa sul trattamento dei dati personali ai sensi dell'art. 13 del Regolamento UE 2016/679 (GDPR): dati raccolti, finalità, diritti dell'interessato.",
+    url: '/privacy-policy',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'Privacy Policy Terra Bonifica',
+      },
+    ],
+  },
 }
 
 export default function PrivacyPolicyPage() {

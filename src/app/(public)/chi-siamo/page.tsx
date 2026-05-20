@@ -1,10 +1,26 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { OG_BASE } from '@/lib/metadata'
 
 export const metadata: Metadata = {
   title: 'Chi Siamo',
   description:
     'Conosci il team di Terra Bonifica: professionisti e ricercatori impegnati nella bonifica e rigenerazione del suolo.',
+  openGraph: {
+    ...OG_BASE,
+    title: 'Chi Siamo | Terra Bonifica',
+    description:
+      'Un gruppo interdisciplinare di ingegneri ambientali, pedologi, microbiologi e comunicatori scientifici uniti dalla missione di accelerare la bonifica dei suoli contaminati in Italia.',
+    url: '/chi-siamo',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'Chi Siamo — Il team di Terra Bonifica',
+      },
+    ],
+  },
 }
 
 export default function ChiSiamoPage() {

@@ -1,9 +1,25 @@
 import type { Metadata } from 'next'
+import { OG_BASE } from '@/lib/metadata'
 
 export const metadata: Metadata = {
   title: 'Contatti',
   description:
     'Mettiti in contatto con il team di Terra Bonifica per collaborazioni, informazioni o richieste specifiche.',
+  openGraph: {
+    ...OG_BASE,
+    title: 'Contatti | Terra Bonifica',
+    description:
+      'Hai domande, proposte di collaborazione o vuoi segnalarci un sito contaminato? Il team di Terra Bonifica è disponibile per collaborazioni scientifiche, orientamento normativo e richieste di approfondimento.',
+    url: '/contatti',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'Contatti Terra Bonifica',
+      },
+    ],
+  },
 }
 
 export default function ContattiPage() {
