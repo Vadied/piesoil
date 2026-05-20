@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -100,6 +100,11 @@ export function ArticleForm({
     article?.tags.map((t) => t.tag.id) ?? [],
   )
 
+  // Upload state
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
   // UI state
   const [previewMode, setPreviewMode] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -111,6 +116,43 @@ export function ArticleForm({
       setSlug(slugify(title))
     }
   }, [title, slugTouched])
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploading(true)
+    setUploadError(null)
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await fetch('/api/backoffice/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = (await res.json()) as { url?: string; error?: string }
+
+      if (!res.ok) {
+        setUploadError(data.error ?? 'Errore durante il caricamento.')
+        return
+      }
+
+      if (data.url) {
+        setCoverImageUrl(data.url)
+      }
+    } catch {
+      setUploadError('Errore di rete. Riprova.')
+    } finally {
+      setIsUploading(false)
+      // Reset so the same file can be re-selected after an error
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -325,27 +367,103 @@ export function ArticleForm({
             {/* Save button */}
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isUploading}
               className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting
                 ? 'Salvataggio…'
-                : isEdit
-                  ? 'Aggiorna articolo'
-                  : 'Crea articolo'}
+                : isUploading
+                  ? 'Caricamento immagine…'
+                  : isEdit
+                    ? 'Aggiorna articolo'
+                    : 'Crea articolo'}
             </button>
           </div>
 
           {/* Cover image */}
           <div className="space-y-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-900">Immagine di copertina</h3>
-            <input
-              type="url"
-              value={coverImageUrl}
-              onChange={(e) => setCoverImageUrl(e.target.value)}
-              placeholder="https://…"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
-            />
+
+            {/* File upload button */}
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-gray-500">Carica dal dispositivo</p>
+              <label
+                className={[
+                  'flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed px-3 py-3 text-sm transition-colors',
+                  isUploading
+                    ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
+                    : 'border-gray-300 text-gray-600 hover:border-green-400 hover:bg-green-50',
+                ].join(' ')}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+                  disabled={isUploading}
+                  onChange={(e) => void handleFileUpload(e)}
+                  className="sr-only"
+                />
+                {isUploading ? (
+                  <>
+                    <svg
+                      className="h-4 w-4 animate-spin"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
+                    Caricamento…
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                      />
+                    </svg>
+                    Scegli immagine
+                  </>
+                )}
+              </label>
+              {uploadError && (
+                <p className="mt-1 text-xs text-red-600">{uploadError}</p>
+              )}
+            </div>
+
+            {/* URL fallback */}
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-gray-500">oppure inserisci URL</p>
+              <input
+                type="url"
+                value={coverImageUrl}
+                onChange={(e) => setCoverImageUrl(e.target.value)}
+                placeholder="https://…"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+              />
+            </div>
+
             {coverImageUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
