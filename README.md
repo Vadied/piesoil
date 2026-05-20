@@ -54,6 +54,7 @@ All secrets and external endpoints are read from environment variables. Copy `.e
 | `SEED_ADMIN_EMAIL` | Email for the initial admin user (seed only) |
 | `SEED_ADMIN_PASSWORD` | Plain-text password hashed by the seed script (seed only) |
 | `SEED_ADMIN_NAME` | Display name for the initial admin user (seed only, default: `Admin`) |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 Measurement ID (format: `G-XXXXXXXXXX`). Leave empty to disable analytics. |
 | `NODE_ENV` | `development` locally, `production` on Cloud Run |
 
 See `.env.example` for full descriptions and example values.
