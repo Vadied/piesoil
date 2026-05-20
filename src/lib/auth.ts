@@ -29,10 +29,15 @@ export const authOptions: NextAuthOptions = {
             image: true,
             password: true,
             role: true,
+            disabled: true,
           },
         })
 
         if (!user || !user.password) {
+          return null
+        }
+
+        if (user.disabled) {
           return null
         }
 
@@ -74,15 +79,20 @@ export const authOptions: NextAuthOptions = {
           token.role = withRole.role
         }
       }
-      // Fetch the role from the database when it is not yet in the token.
-      // This covers the first OAuth sign-in as well as token refreshes where
-      // an older token predates the role field.
+      // Fetch the role (and disabled status) from the database when the role is
+      // not yet in the token. This covers the first OAuth sign-in as well as
+      // token refreshes where an older token predates the role field.
       if (!token.role && token.sub) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.sub },
-          select: { role: true },
+          select: { role: true, disabled: true },
         })
         if (dbUser) {
+          if (dbUser.disabled) {
+            // Strip the role so the session callback leaves session.user.role
+            // unpopulated, which causes all admin/role checks to deny access.
+            return { ...token, error: 'AccountDisabled' }
+          }
           token.role = dbUser.role
         }
       }

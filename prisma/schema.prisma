@@ -35,6 +35,8 @@ model User {
   /// Nullable so OAuth-only users never have a local password.
   password      String?
   role          UserRole  @default(CO_EDITOR)
+  /// When true the account is blocked from logging in (credentials or OAuth).
+  disabled      Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
