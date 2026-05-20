@@ -50,6 +50,7 @@ All secrets and external endpoints are read from environment variables. Copy `.e
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
 | `GCS_BUCKET_NAME` | GCS bucket for uploaded cover images |
+| `REVALIDATION_SECRET` | Secret token for the `POST /api/revalidate` endpoint (`openssl rand -base64 32`) |
 | `SEED_ADMIN_EMAIL` | Email for the initial admin user (seed only) |
 | `SEED_ADMIN_PASSWORD` | Plain-text password hashed by the seed script (seed only) |
 | `SEED_ADMIN_NAME` | Display name for the initial admin user (seed only, default: `Admin`) |
@@ -70,31 +71,71 @@ The app is available at `http://localhost:3000`.
 ```
 src/
   app/
-    (public)/          Public site routes — layout has header + footer
-      page.tsx         Home page (/)
-    backoffice/        Authenticated backoffice (/backoffice/*)
-      dashboard/       Dashboard (/backoffice/dashboard)
+    (public)/              Public site routes — layout has header + footer
+      page.tsx             Home page (/)
+      blog/
+        page.tsx           Blog listing with pagination (/blog?page=N)
+        [slug]/page.tsx    Article detail with markdown rendering (/blog/:slug)
+    backoffice/            Authenticated backoffice (/backoffice/*)
+      dashboard/           Dashboard (/backoffice/dashboard)
     api/
       auth/[...nextauth]/  NextAuth.js handler
-      health/          Liveness probe for Cloud Run (/api/health)
-    layout.tsx         Root HTML shell (lang, fonts, global CSS)
-    globals.css        Tailwind directives
+      health/              Liveness probe for Cloud Run (/api/health)
+      articles/
+        route.ts           GET /api/articles?page=N  — paginated article list (JSON)
+        [slug]/route.ts    GET /api/articles/:slug   — single article detail (JSON)
+      revalidate/
+        route.ts           POST /api/revalidate      — on-demand ISR revalidation
+    layout.tsx             Root HTML shell (lang, fonts, global CSS)
+    globals.css            Tailwind directives
   components/
-    ui/                Shared UI primitives
-    public/            Public-site-specific components
-    backoffice/        Backoffice-specific components
+    ui/                    Shared UI primitives
+    public/                Public-site-specific components
+    backoffice/            Backoffice-specific components
   lib/
-    auth.ts            NextAuth options (shared between route handler and server code)
-    db.ts              Prisma client singleton
-    storage.ts         Google Cloud Storage helpers
+    articles.ts            Cached Prisma queries for published articles (unstable_cache)
+    auth.ts                NextAuth options (shared between route handler and server code)
+    db.ts                  Prisma client singleton
+    storage.ts             Google Cloud Storage helpers
   types/
-    index.ts           Application-level TypeScript types
-    next-auth.d.ts     NextAuth session type augmentation
+    index.ts               Application-level TypeScript types
+    next-auth.d.ts         NextAuth session type augmentation
 prisma/
-  schema.prisma        Prisma schema — User, Article, Category, Tag + NextAuth models
-  seed.ts              Seeds the initial admin user
-  migrations/          Generated migration history
+  schema.prisma            Prisma schema — User, Article, Category, Tag + NextAuth models
+  seed.ts                  Seeds the initial admin user
+  migrations/              Generated migration history
 ```
+
+## Blog & ISR Caching
+
+### Public Blog
+
+`/blog` renders a paginated grid of published articles (9 per page). `/blog/:slug` renders the full article with markdown content. Both pages use the same cached Prisma query (tagged `articles`, 5-minute TTL) so database load is minimal.
+
+### On-demand Revalidation
+
+When an article is published or updated from the backoffice, call the revalidation endpoint to flush the cache immediately:
+
+```bash
+curl -X POST https://<your-domain>/api/revalidate \
+  -H "x-revalidate-secret: <REVALIDATION_SECRET>"
+```
+
+The endpoint also accepts the token as a `?secret=` query parameter for webhook-style callers. It returns:
+
+```json
+{ "revalidated": true, "tag": "articles", "timestamp": "..." }
+```
+
+`REVALIDATION_SECRET` must be set in Secret Manager (production) or `.env.local` (development). Generate with `openssl rand -base64 32`.
+
+### JSON API
+
+| Endpoint | Description |
+|---|---|
+| `GET /api/articles?page=N` | Paginated published articles |
+| `GET /api/articles/:slug` | Single article detail |
+| `POST /api/revalidate` | Flush article cache (requires `x-revalidate-secret` header) |
 
 ## Authentication
 
