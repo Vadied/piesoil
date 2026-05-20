@@ -137,13 +137,39 @@ The endpoint also accepts the token as a `?secret=` query parameter for webhook-
 | `GET /api/articles/:slug` | Single article detail |
 | `POST /api/revalidate` | Flush article cache (requires `x-revalidate-secret` header) |
 
-## Authentication
+## Authentication & User Roles
+
+### Roles
+
+| Role | Permissions |
+|---|---|
+| `ADMIN` | Full access: all articles, all backoffice sections including user management |
+| `CO_EDITOR` | Restricted access: can only create and edit their own articles; no access to user management |
+
+### Seeding the Initial Admin Account
+
+The database ships empty. Before the first login, create the admin user with the seed script:
+
+```bash
+# Set these in .env.local (never commit real values)
+SEED_ADMIN_EMAIL=admin@example.com
+SEED_ADMIN_PASSWORD=strongpassword
+SEED_ADMIN_NAME=Admin        # optional, defaults to "Admin"
+
+npm run db:seed
+```
+
+The seed script hashes the password with bcrypt (12 rounds) before storing it. Running `db:seed` multiple times is safe — it upserts and leaves an existing admin untouched.
+
+### Creating Co-editor Accounts
+
+Additional co-editor accounts are created from the **Backoffice → Utenti → Nuovo co-editor** panel (admin role required). Passwords are hashed server-side before storage; plaintext passwords are never persisted. An admin can also disable or re-enable a co-editor (preventing login without deleting data) or permanently delete an account that has no associated articles.
 
 ### Backoffice Login
 
 The backoffice is protected by Next.js middleware. Unauthenticated requests to any `/backoffice` route are redirected to `/backoffice/login`. Two sign-in methods are supported:
 
-- **Email + password** — credentials validated against bcrypt-hashed passwords stored in PostgreSQL. User accounts must exist in the database (created by the seed script or by an admin).
+- **Email + password** — credentials validated against bcrypt-hashed passwords stored in PostgreSQL. User accounts must exist in the database (created by the seed script or by an admin). Disabled accounts are rejected at login.
 - **Google OAuth** — delegates to Google using the credentials configured in `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
 
 The user's role (`ADMIN` or `CO_EDITOR`) is propagated from the database through the JWT into `session.user.role`.
