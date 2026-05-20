@@ -61,8 +61,24 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-10 border-t border-green-800 pt-6 text-center text-xs text-green-500">
-          &copy; {new Date().getFullYear()} Terra Bonifica. Tutti i diritti riservati.
+        <div className="mt-10 border-t border-green-800 pt-6">
+          <div className="flex flex-col items-center gap-3 text-xs text-green-500 sm:flex-row sm:justify-between">
+            <p>&copy; {new Date().getFullYear()} Terra Bonifica. Tutti i diritti riservati.</p>
+            <div className="flex gap-4">
+              <Link
+                href="/privacy-policy"
+                className="transition-colors hover:text-green-300"
+              >
+                Privacy Policy
+              </Link>
+              <Link
+                href="/cookie-policy"
+                className="transition-colors hover:text-green-300"
+              >
+                Cookie Policy
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </footer>
