@@ -1,5 +1,4 @@
-import { Header } from '@/components/public/Header'
-import { Footer } from '@/components/public/Footer'
+import { CookieBanner, Footer, Header } from '@/components/public'
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -7,6 +6,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <Header />
       <main className="flex-1">{children}</main>
       <Footer />
+      <CookieBanner />
     </div>
   )
 }
