@@ -12,6 +12,7 @@ const inter = Inter({ subsets: ['latin'] })
 const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXTAUTH_URL || 'http://localhost:3000'),
   title: {
     default: 'Terra Bonifica',
     template: '%s | Terra Bonifica',

@@ -1,10 +1,26 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { OG_BASE } from '@/lib/metadata'
 
 export const metadata: Metadata = {
   title: 'Cookie Policy',
   description:
     "Informativa sull'uso dei cookie nel sito Terra Bonifica: tipologie, finalità e modalità di gestione del consenso.",
+  openGraph: {
+    ...OG_BASE,
+    title: 'Cookie Policy | Terra Bonifica',
+    description:
+      "Informativa sull'uso dei cookie e tecnologie di tracciamento nel sito terrabonifica.it: cookie tecnici, cookie analitici GA4 e Consent Mode v2.",
+    url: '/cookie-policy',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'Cookie Policy Terra Bonifica',
+      },
+    ],
+  },
 }
 
 export default function CookiePolicyPage() {

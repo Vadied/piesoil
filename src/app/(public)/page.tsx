@@ -1,10 +1,26 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { OG_BASE } from '@/lib/metadata'
 
 export const metadata: Metadata = {
   title: 'Home',
   description:
     'Terra Bonifica — ricerca e divulgazione sulle tecniche innovative di bonifica e rigenerazione del suolo contaminato.',
+  openGraph: {
+    ...OG_BASE,
+    title: 'Terra Bonifica — Bonifica e rigenerazione del suolo',
+    description:
+      "Un progetto dedicato alla ricerca, allo sviluppo e alla divulgazione di tecniche innovative per la bonifica dei terreni contaminati e la loro restituzione all'uso agricolo e naturalistico.",
+    url: '/',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'Terra Bonifica — Bonifica e rigenerazione del suolo',
+      },
+    ],
+  },
 }
 
 export default function HomePage() {

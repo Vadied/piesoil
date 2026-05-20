@@ -1,10 +1,26 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { OG_BASE } from '@/lib/metadata'
 
 export const metadata: Metadata = {
   title: 'Il Progetto',
   description:
     'Scopri la missione, gli obiettivi e la metodologia di Terra Bonifica nel campo della bonifica del suolo contaminato.',
+  openGraph: {
+    ...OG_BASE,
+    title: 'Il Progetto | Terra Bonifica',
+    description:
+      'Scopri la missione, gli obiettivi e la metodologia di Terra Bonifica: ricerca applicata, validazione sul campo e advocacy per la bonifica sostenibile dei siti contaminati.',
+    url: '/il-progetto',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'Il Progetto Terra Bonifica — Missione e metodologia',
+      },
+    ],
+  },
 }
 
 export default function IlProgettoPage() {
